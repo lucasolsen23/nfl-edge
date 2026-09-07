@@ -45,13 +45,16 @@ Covers all three NFL markets:
 | market | Kalshi series | fair value from |
 |--------|---------------|-----------------|
 | moneyline | `KXNFLGAME` | de-vigged book h2h consensus |
-| spread | `KXNFLSPREAD` | P(margin > strike), normal around consensus spread |
-| total | `KXNFLTOTAL` | P(total > strike), normal around consensus total |
+| spread | `KXNFLSPREAD` | P(margin > strike), empirical dist. around consensus spread |
+| total | `KXNFLTOTAL` | P(total > strike), empirical dist. around consensus total |
 
 - Kalshi reads need **no credentials** (public market data).
-- Spreads/totals are priced with a **distribution model** whose SDs are estimated
-  empirically from 2015–2025 closing-line residuals (margin σ≈12.7, total σ≈13.2;
-  both residual means ≈0, i.e. closing lines are unbiased). See `edge/dist.py`.
+- Spreads/totals are priced with an **empirical outcome distribution** measured
+  from 2015–2025 closing-line residuals (`scripts/calibrate.py` →
+  `edge/distributions.json`), so it reflects NFL key-number clustering (3, 7)
+  instead of a smooth normal. Impact on a live slate: the normal flagged 31
+  edges ≥2%, the calibrated model only 4 — the rest were normal-tail artifacts.
+  Falls back to a normal (σ: margin 12.7, total 13.2) if the file is absent.
 - Edge = `fair − (kalshi_ask + fee)`, with a fractional-**Kelly** stake per bet.
 - Always-on via **GitHub Actions cron** → **Telegram**. See [SETUP.md](SETUP.md).
 

@@ -90,9 +90,27 @@ def test_scan_matches_correct_week_by_date():
 
 
 # ---- distribution pricer --------------------------------------------------
-def test_prob_over_at_mean_is_half():
+def test_prob_over_normal_at_mean_is_half():
+    # the normal model is exactly symmetric at the mean
     assert approx(dist.prob_over(0.0, 0.0, 13.0), 0.5)
-    assert approx(dist.prob_total_over(47.0, 47.0), 0.5)
+    assert approx(dist.prob_total_over(47.0, 47.0, empirical=False), 0.5)
+
+
+def test_empirical_loaded_and_near_half_at_line():
+    # calibration file should be present and used
+    assert dist.using_empirical()
+    # at the line the empirical prob is close to (but not exactly) 0.5
+    assert 0.45 < dist.prob_total_over(47.0, 47.0) < 0.55
+    assert 0.45 < dist.prob_margin_over(0.0, 0.0) < 0.55
+
+
+def test_empirical_key_number_jump():
+    # a team favored by exactly 3: crossing the 3-point key number (2.5 -> 3.5)
+    # should drop the cover prob more than crossing a non-key number (5.5 -> 6.5),
+    # because many games land exactly on 3. Empirical captures this; normal barely.
+    below = dist.prob_margin_over(3.0, 2.5) - dist.prob_margin_over(3.0, 3.5)
+    non_key = dist.prob_margin_over(3.0, 5.5) - dist.prob_margin_over(3.0, 6.5)
+    assert below > non_key
 
 
 def test_prob_over_monotonic_in_strike():
