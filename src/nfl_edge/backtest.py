@@ -89,6 +89,30 @@ def _better_diff_ats(game: dict, state: SeasonState) -> Pick:
     return "home" if dh > da else "away"
 
 
+def model_ats_strategy(
+    pred_map: dict[str, float], threshold: float = 1.0, name: str | None = None
+) -> Strategy:
+    """Bet ATS when the model's predicted home margin disagrees with the spread
+    by more than `threshold` points.
+
+    pred_map: game_id -> predicted home margin (out-of-sample).
+    spread_line > 0 => home favored by that many, so the model's implied edge on
+    the home side is (pred_margin - spread_line).
+    """
+    def pick(game: dict, state: SeasonState) -> Pick:
+        pm = pred_map.get(game["game_id"])
+        if pm is None:
+            return None
+        edge = pm - game["spread_line"]
+        if edge > threshold:
+            return "home"
+        if edge < -threshold:
+            return "away"
+        return None
+
+    return Strategy(name or f"model_ats_thr{threshold:g}", "ats", pick)
+
+
 BASELINES: list[Strategy] = [
     Strategy("always_home_ats", "ats", _always("home")),
     Strategy("always_away_ats", "ats", _always("away")),

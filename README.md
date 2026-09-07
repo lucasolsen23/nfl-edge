@@ -18,15 +18,26 @@ headaches.
 | Backtest harness (walk-forward, units/ROI) | `src/nfl_edge/backtest.py` | done |
 | Baseline validation | `outputs/backtest_reports/` | done |
 
+## Phase 2 status: 🟡 in progress
+
+| Piece | File | State |
+|-------|------|-------|
+| Point-in-time EPA features (leakage-checked) | `src/nfl_edge/features.py` | done |
+| Walk-forward ridge power rating | `src/nfl_edge/model.py` | done |
+| Model → ATS backtest vs closing line | `scripts/run_model.py` | done |
+| No-vig / Kalshi discrepancy scanner | — | next |
+| Calibration report (Brier, reliability) | `evaluate.py` | next |
+
 ## Quickstart
 
 ```bash
 python -m venv .venv && . .venv/Scripts/activate      # Windows
 pip install -r requirements.txt
 
-python scripts/build_dataset.py            # cache 1999–2025 schedules + lines
+python scripts/build_dataset.py --pbp      # cache schedules + play-by-play
 python -m pytest -q                        # 14/14 green
 python scripts/run_backtest.py             # baseline units/ROI, 2015–2025
+python scripts/run_model.py                # walk-forward model vs closing line
 ```
 
 ## Data (audited, not assumed)
@@ -85,6 +96,36 @@ fading the public (away/under) loses least, chasing home/over loses most — and
 **betting the statistically "better" team ATS loses**, because team strength is
 already priced into the spread. That's the whole motivation for a model that
 beats the *number*.
+
+## Phase 2 model — the honest result (2016–2025, out-of-sample)
+
+A walk-forward ridge builds a team power rating from EPA differentials **only**
+(the market line is excluded), then bets ATS when its projected margin disagrees
+with the closing spread by more than a threshold.
+
+Prediction quality vs. the market:
+
+| metric | model | closing spread |
+|--------|------:|---------------:|
+| MAE vs actual margin | 10.33 | **9.86** |
+| corr with actual margin | 0.36 | — |
+
+ATS results by edge threshold (flat 1u vs the close, break-even = 52.4%):
+
+| threshold | bets | win% | ROI |
+|----------:|-----:|-----:|----:|
+| 0.5 | 2153 | 50.4% | −2.5% |
+| 1.0 | 1867 | 50.6% | −2.2% |
+| 2.0 | 1359 | 51.7% | −0.2% |
+| 3.0 |  947 | 51.7% | −0.3% |
+
+**Reading it:** the closing spread predicts margins *better* than the EPA model
+(9.86 < 10.33 MAE), and the model tops out at 51.7% ATS — real signal (>50%, and
+it sharpens as the threshold rises) but short of the 52.4% needed to beat the
+vig. This is the expected, correct result: **a "predict the game better" model
+does not beat an efficient closing line.** It is the launch point for the edges
+that don't require out-predicting the market — softer markets and book-vs-Kalshi
+price gaps.
 
 ## Roadmap
 
