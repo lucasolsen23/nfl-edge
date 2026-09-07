@@ -171,7 +171,11 @@ price gaps.
   receiving yards and receptions, with an empirical per-stat distribution so
   P(over) reflects the real right-skew. `props/live.py` projects the upcoming
   week — current form × 2026 roster (correct team after offseason moves) × the
-  real upcoming opponent. Score lines you read off PrizePicks/Underdog:
+  real upcoming opponent. A **matchup layer** (`props/context.py`) adds defense
+  strength (last-season prior so Week 1 isn't neutral), pass-rush vs pass-
+  protection (downgrades QB passing, flags sack risk), and injuries (drops
+  Out/Doubtful), with a plain note like "tough matchup" / "high sack risk".
+  Score lines you read off PrizePicks/Underdog:
   `python scripts/props_live.py --lines props_lines.example.csv`.
   Validated: projections unbiased, corr 0.53–0.65; empirical P(over mean) matches
   real over-rates (~0.38 receiving) not 0.50.

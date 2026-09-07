@@ -36,6 +36,8 @@ class PropEdge:
     opponent: str
     season: int
     week: int
+    note: str = ""
+    opp_factor: float = 1.0
 
     def edge_vs(self, breakeven: float) -> float:
         return round(self.prob - breakeven, 4)
@@ -70,6 +72,7 @@ def score_lines(lines: list[dict], projections: pl.DataFrame) -> list[PropEdge]:
             pick=pick, prob=round(prob, 4), proj_mean=round(mean, 1),
             proj_sd=round(sd, 1), opponent=r["opponent_team"],
             season=r["season"], week=r["week"],
+            note=r.get("note", "") or "", opp_factor=r.get("opp_factor", 1.0),
         ))
     edges.sort(key=lambda e: e.prob, reverse=True)
     return edges
@@ -81,9 +84,10 @@ def format_props(edges: list[PropEdge], breakeven: float = 0.577) -> str:
     lines = [f"Prop picks (model vs line) — need > {breakeven*100:.0f}% per leg to profit\n"]
     for i, e in enumerate(edges, 1):
         flag = "✅" if e.prob >= breakeven else "  "
+        note = f"  [{e.note}]" if e.note else ""
         lines.append(
             f"{flag} #{i} {e.player} — {e.stat.replace('_', ' ')}\n"
-            f"     {e.pick} {e.line}  (proj {e.proj_mean}±{e.proj_sd}, vs {e.opponent})\n"
+            f"     {e.pick} {e.line}  (proj {e.proj_mean}±{e.proj_sd}, vs {e.opponent}){note}\n"
             f"     model {e.prob*100:.0f}%   edge vs break-even {e.edge_vs(breakeven)*100:+.1f} pts"
         )
     return "\n".join(lines)

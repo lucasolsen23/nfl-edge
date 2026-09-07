@@ -139,6 +139,21 @@ def cache_rosters(season: int) -> Path:
     return out
 
 
+def cache_injuries(seasons: range | list[int]) -> Path | None:
+    """Weekly injury reports (used to drop Out/Doubtful players from props).
+    Returns None if no requested season is published yet."""
+    _ensure_dirs()
+    try:
+        df = _load_available(nfl.load_injuries, list(seasons), "injuries")
+    except RuntimeError:
+        print("[injuries] none available yet")
+        return None
+    out = RAW_DIR / "injuries.parquet"
+    df.write_parquet(out)
+    print(f"[injuries] {df.height} rows -> {out}")
+    return out
+
+
 if __name__ == "__main__":
     # Defaults chosen from the coverage audit:
     #   schedules 1999+ (spread/total complete), pbp 2015+ (modeling window).

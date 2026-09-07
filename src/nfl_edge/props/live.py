@@ -21,12 +21,30 @@ from pathlib import Path
 import polars as pl
 
 from . import projections as P
+from . import context as C
 from ..edge.teams import norm_abbr
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 RAW = REPO_ROOT / "data" / "raw"
 
 SEASON = 2026
+PRIOR_SEASON = 2025          # defense/pass-rush prior until current season accrues
+
+
+def _pass_rush(season: int) -> tuple[dict, dict]:
+    """Load just the dropback rows we need from cached pbp and build pass-rush
+    indices for `season` (falls back to the prior season if empty)."""
+    path = RAW / "pbp.parquet"
+    if not path.exists():
+        return {}, {}
+    for yr in (season, PRIOR_SEASON):
+        d = (pl.scan_parquet(path)
+             .filter((pl.col("season") == yr) & (pl.col("qb_dropback") == 1))
+             .select(["season", "defteam", "posteam", "sack", "qb_dropback"])
+             .collect())
+        if d.height:
+            return C.pass_rush_indices(d, yr)
+    return {}, {}
 
 
 def _load():
@@ -109,7 +127,11 @@ def live_projections(target_week: int | None = None) -> pl.DataFrame:
     week = target_week or upcoming_week(sched, SEASON)
     if week is None:
         return pl.DataFrame()
-    mat=upcoming_matchups(sched, SEASON, week)
+    mat = upcoming_matchups(sched, SEASON, week)
+
+    # matchup context: pass rush / protection, injuries
+    def_rel, off_rel = _pass_rush(SEASON)
+    out_ids = C.injuries_out(SEASON, week)
 
     # 2026 active roster -> current team per player
     roster = ros.filter(pl.col("status") == "ACT").select(
@@ -119,17 +141,35 @@ def live_projections(target_week: int | None = None) -> pl.DataFrame:
     frames = []
     for stat, positions in P.STATS.items():
         form = current_form(ps, stat, positions)
-        fac = defense_factors(ps, stat, positions, SEASON)
+        # opponent factor: current season if it has data, else last-season prior
+        fac = {**defense_factors(ps, stat, positions, PRIOR_SEASON),
+               **defense_factors(ps, stat, positions, SEASON)}
+        is_pass = stat == "passing_yards"
         f = (form.join(roster, on="player_id", how="inner")
                  .join(ps.group_by("player_id").agg(
                        pl.col("player_display_name").last()), on="player_id", how="left")
                  .join(mat, left_on="team2026", right_on="team", how="inner"))
+        if out_ids:                                    # drop players ruled out
+            f = f.filter(~pl.col("player_id").is_in(list(out_ids)))
+
+        def _row_ctx(s: dict) -> dict:
+            opp_f = fac.get((s["opponent"], s["position_group"]), 1.0)
+            pressure = (C.matchup_pressure(s["team2026"], s["opponent"], def_rel, off_rel)
+                        if is_pass else None)
+            pass_f = C.pass_yards_pressure_factor(pressure) if is_pass else 1.0
+            return {"opp_factor": opp_f, "pressure": pressure or 0.0,
+                    "pass_factor": pass_f,
+                    "note": C.matchup_note(opp_f, pressure)}
+
         f = f.with_columns(
-            pl.struct(["opponent", "position_group"]).map_elements(
-                lambda s: fac.get((s["opponent"], s["position_group"]), 1.0),
-                return_dtype=pl.Float64).alias("opp_factor")
-        ).with_columns(
-            (pl.col("form_mean") * pl.col("opp_factor")).alias("proj_mean"),
+            pl.struct(["opponent", "position_group", "team2026"]).map_elements(
+                _row_ctx,
+                return_dtype=pl.Struct({"opp_factor": pl.Float64, "pressure": pl.Float64,
+                                        "pass_factor": pl.Float64, "note": pl.String}),
+            ).alias("_ctx")
+        ).unnest("_ctx").with_columns(
+            (pl.col("form_mean") * pl.col("opp_factor") * pl.col("pass_factor")
+             ).alias("proj_mean"),
             pl.col("form_sd").alias("proj_sd"),
             pl.lit(stat).alias("stat"),
             pl.lit(SEASON).alias("season"),
@@ -139,7 +179,7 @@ def live_projections(target_week: int | None = None) -> pl.DataFrame:
         frames.append(f.select([
             "player_id", "player_display_name", "position_group", "team2026",
             "opponent_team", "is_home", "gameday", "season", "week", "stat",
-            "opp_factor", "proj_mean", "proj_sd",
+            "opp_factor", "pressure", "note", "proj_mean", "proj_sd",
         ]))
     return pl.concat(frames, how="vertical")
 

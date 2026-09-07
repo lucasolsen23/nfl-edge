@@ -5,6 +5,7 @@ import polars as pl
 from nfl_edge.props import projections as P
 from nfl_edge.props import scan_props as S
 from nfl_edge.props import live as L
+from nfl_edge.props import context as C
 
 
 def test_prob_over_normal_symmetric():
@@ -67,3 +68,27 @@ def test_upcoming_matchups_two_sided_and_normalized():
     assert set(d) == {"KC", "LAR"}                 # LA -> LAR
     assert d["KC"]["opponent"] == "LAR" and d["KC"]["is_home"] is True
     assert d["LAR"]["opponent"] == "KC" and d["LAR"]["is_home"] is False
+
+
+def test_pressure_and_pass_factor():
+    def_rel = {"SF": 1.4, "MIA": 0.7}      # SF strong rush, MIA weak
+    off_rel = {"ARI": 1.2, "PHI": 0.8}     # ARI leaky O-line, PHI good
+    tough = C.matchup_pressure("ARI", "SF", def_rel, off_rel)   # leaky vs strong
+    easy = C.matchup_pressure("PHI", "MIA", def_rel, off_rel)   # good vs weak
+    assert tough > 1.0 > easy
+    # more pressure -> fewer passing yards, clamped
+    assert C.pass_yards_pressure_factor(tough) < 1.0
+    assert C.pass_yards_pressure_factor(easy) > 1.0
+    assert 0.90 <= C.pass_yards_pressure_factor(5.0) <= 1.10   # clamp holds
+
+
+def test_matchup_note():
+    assert "favorable" in C.matchup_note(1.15, None)
+    assert "tough" in C.matchup_note(0.85, None)
+    assert "sack risk" in C.matchup_note(1.0, 1.3)
+    assert C.matchup_note(1.0, 1.0) == ""
+
+
+def test_injuries_out_graceful_for_future_season():
+    # 2026 injuries aren't published yet -> empty set, no crash
+    assert C.injuries_out(2026, 1) == set()

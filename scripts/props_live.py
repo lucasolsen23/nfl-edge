@@ -38,8 +38,9 @@ def _print_candidates(lp: pl.DataFrame) -> None:
         print(f"  {stat.replace('_', ' ').upper()}")
         for r in top.to_dicts():
             loc = "vs" if r["is_home"] else "@"
+            note = f"  [{r['note']}]" if r.get("note") else ""
             print(f"    {r['player_display_name']:24} {r['team2026']} {loc} "
-                  f"{r['opponent_team']:3}  {r['proj_mean']:6.1f} +/- {r['proj_sd']:.1f}")
+                  f"{r['opponent_team']:3}  {r['proj_mean']:6.1f} +/- {r['proj_sd']:.1f}{note}")
         print()
 
 
