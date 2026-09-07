@@ -1,0 +1,9 @@
+# Core (Polars-native pipeline -- no pandas/pyarrow, which avoids the Windows
+# deep-path DLL issue and keeps the stack light).
+nflreadpy>=0.1.5
+polars>=1.0
+scikit-learn>=1.4     # phase 5 model (consumes polars .to_numpy())
+pyyaml>=6.0
+
+# Dev
+pytest>=8.0

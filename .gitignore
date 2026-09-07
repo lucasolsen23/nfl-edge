@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+data/raw/
+data/processed/
+outputs/backtest_reports/*.csv
+outputs/predictions_log.csv
+.pytest_cache/
+.DS_Store
