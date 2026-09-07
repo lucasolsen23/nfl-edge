@@ -102,6 +102,9 @@ PLAYER_COLS = [
     "position_group", "season", "week", "season_type", "team", "opponent_team",
     "attempts", "passing_yards", "passing_tds", "rushing_yards", "rushing_tds",
     "receptions", "targets", "receiving_yards", "receiving_tds",
+    # defensive (props: tackles, sacks)
+    "def_tackles_solo", "def_tackle_assists", "def_sacks", "def_tackles_for_loss",
+    "def_qb_hits", "def_interceptions",
 ]
 
 

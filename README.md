@@ -179,8 +179,13 @@ price gaps.
   `python scripts/props_live.py --lines props_lines.example.csv`.
   Validated: projections unbiased, corr 0.53–0.65; empirical P(over mean) matches
   real over-rates (~0.38 receiving) not 0.50.
-- **Phase 5 — Next.** Correlated same-game props (props + team win) for pick'em
-  parlays; auto line source; other sports (NBA/EPL/UCL); Playoff/SB futures.
+- **Phase 5 — Parlays + defense (built).** Correlated same-game parlays
+  (`props/correlations.py`, Gaussian copula on measured residual correlations)
+  and defensive-player props (`props/defense.py`: tackles via normal, sacks via
+  Poisson; tackles scale with opponent pace, sacks with opponent O-line). Run:
+  `python scripts/def_props.py --lines def.csv`.
+- **Phase 6 — Next.** Auto line source for props; other sports (NBA/EPL/UCL);
+  Playoff/SB futures.
 
 Model work itself (`features.py` point-in-time EPA, `model.py` walk-forward
 logistic/ridge) hangs off the Phase-1 foundation.
