@@ -93,6 +93,52 @@ def read_cached_schedules() -> pl.DataFrame:
     return pl.read_parquet(RAW_DIR / "schedules.parquet")
 
 
+# --------------------------------------------------------------------------
+# Player stats + rosters (for the props model). Future seasons 404 until they
+# exist, so we load season-by-season and skip what isn't published yet.
+# --------------------------------------------------------------------------
+PLAYER_COLS = [
+    "player_id", "player_name", "player_display_name", "position",
+    "position_group", "season", "week", "season_type", "team", "opponent_team",
+    "attempts", "passing_yards", "passing_tds", "rushing_yards", "rushing_tds",
+    "receptions", "targets", "receiving_yards", "receiving_tds",
+]
+
+
+def _load_available(loader, seasons: list[int], label: str):
+    """Call an nflreadpy loader per season, skipping seasons that 404."""
+    frames, got = [], []
+    for yr in seasons:
+        try:
+            frames.append(loader(seasons=[yr]))
+            got.append(yr)
+        except Exception as e:  # noqa: BLE001 -- future season not published yet
+            print(f"  [{label}] {yr} unavailable, skipping ({type(e).__name__})")
+    if not frames:
+        raise RuntimeError(f"no {label} seasons available")
+    print(f"  [{label}] loaded seasons {got[0]}-{got[-1]}")
+    return pl.concat(frames, how="diagonal_relaxed")
+
+
+def cache_player_stats(seasons: range | list[int]) -> Path:
+    _ensure_dirs()
+    df = _load_available(nfl.load_player_stats, list(seasons), "player_stats")
+    df = df.select([c for c in PLAYER_COLS if c in df.columns])
+    out = RAW_DIR / "player_stats.parquet"
+    df.write_parquet(out)
+    print(f"[player_stats] {df.height} rows -> {out}")
+    return out
+
+
+def cache_rosters(season: int) -> Path:
+    _ensure_dirs()
+    df = nfl.load_rosters(seasons=[season])
+    out = RAW_DIR / f"rosters_{season}.parquet"
+    df.write_parquet(out)
+    print(f"[rosters] {df.height} players ({season}) -> {out}")
+    return out
+
+
 if __name__ == "__main__":
     # Defaults chosen from the coverage audit:
     #   schedules 1999+ (spread/total complete), pbp 2015+ (modeling window).

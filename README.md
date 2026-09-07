@@ -166,12 +166,20 @@ price gaps.
 - **Phase 3 — Weekly ops.** Live line pull, prediction log, weekly grading,
   **CLV tracking**, calibration (Brier, reliability curves), Streamlit/Tableau
   dashboard.
-- **Phase 4 — Expansion.** Playoff/Super Bowl futures, then player props (softer,
-  less efficient markets).
+- **Phase 4 — Player props (built, live).** `src/nfl_edge/props/`: walk-forward
+  projections (recent form × opponent-defense factor) for passing/rushing/
+  receiving yards and receptions, with an empirical per-stat distribution so
+  P(over) reflects the real right-skew. `props/live.py` projects the upcoming
+  week — current form × 2026 roster (correct team after offseason moves) × the
+  real upcoming opponent. Score lines you read off PrizePicks/Underdog:
+  `python scripts/props_live.py --lines props_lines.example.csv`.
+  Validated: projections unbiased, corr 0.53–0.65; empirical P(over mean) matches
+  real over-rates (~0.38 receiving) not 0.50.
+- **Phase 5 — Next.** Correlated same-game props (props + team win) for pick'em
+  parlays; auto line source; other sports (NBA/EPL/UCL); Playoff/SB futures.
 
 Model work itself (`features.py` point-in-time EPA, `model.py` walk-forward
-logistic/ridge, `evaluate.py` calibration) is Phase 2+ and hangs off this
-foundation.
+logistic/ridge) hangs off the Phase-1 foundation.
 
 ## Bankroll note
 
