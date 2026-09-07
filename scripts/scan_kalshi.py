@@ -77,7 +77,9 @@ def run_once(args) -> None:
         fresh = notify.filter_new(rows)
         if fresh:
             n = notify.build_notifier(args.notify)
-            n.send(f"NFL Kalshi edges ({len(fresh)} new)", scan.format_board(fresh))
+            # cap to keep under Discord's 2000-char message limit
+            n.send(f"NFL Kalshi edges ({len(fresh)} new)",
+                   scan.format_board(fresh, limit=8))
             print(f"\n[notify:{args.notify}] sent {len(fresh)} new alert(s)")
 
 

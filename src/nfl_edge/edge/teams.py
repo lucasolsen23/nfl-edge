@@ -25,6 +25,20 @@ NAME_TO_ABBR = {
 ABBR_ALIASES = {"WSH": "WAS", "JAC": "JAX", "LA": "LAR", "OAK": "LV", "SD": "LAC", "STL": "LAR"}
 
 
+ABBR_TO_NAME = {v: k for k, v in NAME_TO_ABBR.items()}
+
+
+def name(ab: str) -> str:
+    """Abbreviation -> full team name (falls back to the abbr itself)."""
+    return ABBR_TO_NAME.get(norm_abbr(ab), ab)
+
+
+def short_name(ab: str) -> str:
+    """Abbreviation -> city/nickname short label, e.g. 'Tampa Bay'."""
+    full = ABBR_TO_NAME.get(norm_abbr(ab))
+    return " ".join(full.split()[:-1]) if full else ab
+
+
 def abbr(name: str) -> str | None:
     """Map a book team name to an abbreviation (best effort)."""
     if name in NAME_TO_ABBR:
