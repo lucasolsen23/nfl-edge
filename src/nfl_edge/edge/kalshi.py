@@ -16,6 +16,7 @@ team (...-NYG, ...-LAR), each a YES/NO "Team wins" contract. Prices are in the
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -98,3 +99,64 @@ def group_by_event(markets: list[KalshiMarket]) -> dict[str, list[KalshiMarket]]
     for m in markets:
         events.setdefault(m.event_ticker, []).append(m)
     return events
+
+
+# --------------------------------------------------------------------------
+# Spread & total ladders. Each contract is a single strike:
+#   spread: "TEAM wins by over floor_strike points"  (strike_type 'greater')
+#   total:  "over floor_strike points scored"
+# --------------------------------------------------------------------------
+@dataclass
+class KalshiLadderMarket:
+    ticker: str
+    event_ticker: str
+    kind: str                 # 'spread' or 'total'
+    team_code: str            # spread only (nflverse abbr); '' for totals
+    floor_strike: float       # the line (e.g. 3.5, 47.5)
+    yes_ask: Optional[float]  # $ to buy YES (team covers / game goes over)
+    yes_bid: Optional[float]
+    last_price: Optional[float]
+    close_time: Optional[str]
+    status: str
+    volume: Optional[float]
+
+
+_LEAD_ALPHA = re.compile(r"^[A-Za-z]+")
+
+
+def _ladder_markets(series_key: str, kind: str, status: str) -> list[KalshiLadderMarket]:
+    raw = get_markets(SERIES[series_key], status=status)
+    out: list[KalshiLadderMarket] = []
+    for m in raw:
+        fs = _f(m.get("floor_strike"))
+        if fs is None:
+            continue
+        team = ""
+        if kind == "spread":
+            suffix = m.get("ticker", "").rsplit("-", 1)[-1]   # e.g. 'KC8'
+            mt = _LEAD_ALPHA.match(suffix)
+            team = mt.group(0).upper() if mt else ""
+        out.append(KalshiLadderMarket(
+            ticker=m.get("ticker", ""),
+            event_ticker=m.get("event_ticker", ""),
+            kind=kind,
+            team_code=team,
+            floor_strike=fs,
+            yes_ask=_f(m.get("yes_ask_dollars")),
+            yes_bid=_f(m.get("yes_bid_dollars")),
+            last_price=_f(m.get("last_price_dollars")),
+            close_time=m.get("close_time"),
+            status=m.get("status", ""),
+            volume=_f(m.get("volume_fp")),
+        ))
+    return out
+
+
+def nfl_spread_markets(status: str = "open") -> list[KalshiLadderMarket]:
+    """'TEAM wins by over X.5 points' contracts across all upcoming games."""
+    return _ladder_markets("spread", "spread", status)
+
+
+def nfl_total_markets(status: str = "open") -> list[KalshiLadderMarket]:
+    """'over X.5 points scored' contracts across all upcoming games."""
+    return _ladder_markets("total", "total", status)

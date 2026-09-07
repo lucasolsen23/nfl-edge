@@ -47,23 +47,29 @@ def _demo_book_probs(mk):
 
 
 def run_once(args) -> None:
-    mk = kalshi.nfl_moneyline_markets(status="open")
+    mk_ml = kalshi.nfl_moneyline_markets(status="open")
+    mk_sp = kalshi.nfl_spread_markets(status="open")
+    mk_tot = kalshi.nfl_total_markets(status="open")
+
     if args.demo:
-        book_probs = _demo_book_probs(mk)
+        cons = _demo_book_probs(mk_ml)   # ML-only pseudo prices; spreads/totals skip
         print("[demo] using Kalshi mid as pseudo fair-value -- edges here are noise")
     else:
         key = os.environ.get("ODDS_API_KEY")
         if not key:
             sys.exit("ODDS_API_KEY not set. Get a free key at the-odds-api.com, "
                      "or run with --demo to see the format.")
-        games = books.fetch_nfl_odds(key)
-        book_probs = books.consensus_fair_probs(games)
+        # h2h,spreads,totals = 3 credits/call against the 500/mo free tier
+        games = books.fetch_nfl_odds(key, markets="h2h,spreads,totals")
+        cons = books.consensus(games)
         q = getattr(books.fetch_nfl_odds, "last_quota", {})
-        print(f"[books] {len(book_probs)} games priced  (quota remaining: {q.get('remaining')})")
+        print(f"[books] {len(cons)} games priced  (quota remaining: {q.get('remaining')})")
 
-    rows = scan.scan(mk, book_probs, min_edge=args.min_edge, fee_rate=args.fee_rate)
+    rows = scan.scan_all(mk_ml, mk_sp, mk_tot, cons,
+                         min_edge=args.min_edge, fee_rate=args.fee_rate)
+    n_games = len(kalshi.group_by_event(mk_ml))
     print(f"\n{len(rows)} edge(s) >= {args.min_edge*100:.0f}%  "
-          f"(scanned {len(kalshi.group_by_event(mk))} games)\n")
+          f"(scanned {n_games} games x ML/spread/total)\n")
     print(scan.format_board(rows))
 
     if args.notify and rows:

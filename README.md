@@ -40,9 +40,19 @@ python scripts/scan_kalshi.py --notify telegram --loop 900   # poll + phone aler
 python scripts/scan_kalshi.py --demo          # see the format without any API key
 ```
 
-- Kalshi reads need **no credentials** (public market data; `KXNFLGAME/SPREAD/TOTAL`).
-- Book fair value via The Odds API (free tier). Edge = `fair − (kalshi_ask + fee)`,
-  with a fractional-**Kelly** stake per bet.
+Covers all three NFL markets:
+
+| market | Kalshi series | fair value from |
+|--------|---------------|-----------------|
+| moneyline | `KXNFLGAME` | de-vigged book h2h consensus |
+| spread | `KXNFLSPREAD` | P(margin > strike), normal around consensus spread |
+| total | `KXNFLTOTAL` | P(total > strike), normal around consensus total |
+
+- Kalshi reads need **no credentials** (public market data).
+- Spreads/totals are priced with a **distribution model** whose SDs are estimated
+  empirically from 2015–2025 closing-line residuals (margin σ≈12.7, total σ≈13.2;
+  both residual means ≈0, i.e. closing lines are unbiased). See `edge/dist.py`.
+- Edge = `fair − (kalshi_ask + fee)`, with a fractional-**Kelly** stake per bet.
 - Always-on via **GitHub Actions cron** → **Telegram**. See [SETUP.md](SETUP.md).
 
 ## Quickstart

@@ -72,3 +72,47 @@ def consensus_fair_probs(games: list[dict]) -> dict[frozenset, dict]:
             "n_books": len(fair_acc[ha]),
         }
     return out
+
+
+def consensus(games: list[dict]) -> dict[frozenset, dict]:
+    """Full consensus per game: moneyline fair probs, per-team expected margin
+    (from spreads), and expected total (from totals).
+
+    Requires the odds fetch to include markets='h2h,spreads,totals'.
+    Returns frozenset({home_abbr, away_abbr}) -> {
+        'probs': {abbr: fair_prob},          # from h2h
+        'margin': {abbr: expected_margin},   # +ve = expected to win by that much
+        'total': float,                      # expected combined points
+        'commence_time', 'home', 'away', 'n_books'}.
+    """
+    base = consensus_fair_probs(games)     # moneyline half
+    for g in games:
+        ha, aa = abbr(g.get("home_team", "")), abbr(g.get("away_team", ""))
+        if not ha or not aa:
+            continue
+        ha, aa = norm_abbr(ha), norm_abbr(aa)
+        key = frozenset({ha, aa})
+        entry = base.get(key)
+        if entry is None:
+            continue
+        margin_acc: dict[str, list[float]] = defaultdict(list)
+        total_acc: list[float] = []
+        for bk in g.get("bookmakers", []):
+            for mk in bk.get("markets", []):
+                if mk.get("key") == "spreads":
+                    for o in mk.get("outcomes", []):
+                        ab = abbr(o.get("name", ""))
+                        if ab and o.get("point") is not None:
+                            # a team laying -3 is expected to win by 3 -> margin = -point
+                            margin_acc[norm_abbr(ab)].append(-float(o["point"]))
+                elif mk.get("key") == "totals":
+                    o = next((x for x in mk.get("outcomes", [])
+                              if x.get("name", "").lower() == "over"), None)
+                    if o and o.get("point") is not None:
+                        total_acc.append(float(o["point"]))
+        if ha in margin_acc and aa in margin_acc:
+            entry["margin"] = {ha: sum(margin_acc[ha]) / len(margin_acc[ha]),
+                               aa: sum(margin_acc[aa]) / len(margin_acc[aa])}
+        if total_acc:
+            entry["total"] = sum(total_acc) / len(total_acc)
+    return base

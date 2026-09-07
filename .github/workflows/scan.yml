@@ -3,14 +3,15 @@ name: kalshi-edge-scan
 # Always-on NFL edge scanner. Runs in the cloud on a schedule, compares Kalshi
 # prices to de-vigged book fair value, and pushes Telegram alerts on +EV bets.
 #
-# QUOTA: The Odds API free tier = 500 requests/month. This schedule (every 2h,
-# Thu-Mon) is ~250/month. To poll harder on Sundays add a second cron line, or
-# upgrade the Odds API plan. The Kalshi side is free/unlimited.
+# QUOTA: The Odds API free tier = 500 requests/month. We fetch h2h+spreads+totals
+# = 3 credits per scan. This schedule (every 4h, Thu-Mon) is ~390 credits/month.
+# To poll harder, upgrade the Odds API plan, or drop to --markets h2h (1 credit)
+# for more frequent moneyline-only scans. The Kalshi side is free/unlimited.
 
 on:
   schedule:
     # minute hour day-of-month month day-of-week   (UTC!)
-    - cron: "0 */2 * * 0,1,4,5,6"     # every 2 hours, Thu Fri Sat Sun Mon
+    - cron: "0 */4 * * 0,1,4,5,6"     # every 4 hours, Thu Fri Sat Sun Mon
   workflow_dispatch: {}               # lets you run it on demand from the Actions tab
 
 permissions:

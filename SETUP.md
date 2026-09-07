@@ -54,10 +54,11 @@ GitHub encrypts the repo secrets. Nothing sensitive is committed.
 
 ## Quota math
 
-The Odds API free tier is 500 requests/month; each scan uses 1. The default
-schedule (~every 2h, Thu–Mon) spends ~250/month. To poll Sundays harder, add a
-second `cron` line in the workflow, or upgrade the Odds API plan. Kalshi is free
-and unlimited, so the Kalshi price side can be polled as often as you like.
+The Odds API free tier is 500 requests/month. Each scan fetches
+`h2h,spreads,totals` = **3 credits**. The default schedule (~every 4h, Thu–Mon)
+spends ~390/month. To poll harder, upgrade the Odds API plan, or run moneyline
+only (`--markets h2h`, 1 credit) more frequently. Kalshi is free and unlimited,
+so the Kalshi price side can be polled as often as you like.
 
 ## Tuning
 

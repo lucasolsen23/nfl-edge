@@ -2,8 +2,8 @@
 
 import math
 
-from nfl_edge.edge import fees, scan
-from nfl_edge.edge.kalshi import KalshiMarket
+from nfl_edge.edge import dist, fees, scan
+from nfl_edge.edge.kalshi import KalshiMarket, KalshiLadderMarket
 
 
 def approx(a, b, tol=1e-9):
@@ -67,3 +67,62 @@ def test_scan_finds_and_thresholds_edges():
 def test_scan_skips_unmatched_games():
     mk = [_mkt("E1", "KC", 0.75), _mkt("E1", "IND", 0.26)]
     assert scan.scan(mk, {}, min_edge=0.0) == []   # no book price -> no rows
+
+
+# ---- distribution pricer --------------------------------------------------
+def test_prob_over_at_mean_is_half():
+    assert approx(dist.prob_over(0.0, 0.0, 13.0), 0.5)
+    assert approx(dist.prob_total_over(47.0, 47.0), 0.5)
+
+
+def test_prob_over_monotonic_in_strike():
+    p_low = dist.prob_margin_over(7.0, 2.5)
+    p_high = dist.prob_margin_over(7.0, 10.5)
+    assert p_low > p_high            # harder to clear a bigger number
+    assert 0.0 < p_high < p_low < 1.0
+
+
+def test_prob_over_zero_sd_is_step():
+    assert dist.prob_over(5.0, 3.0, 0.0) == 1.0
+    assert dist.prob_over(2.0, 3.0, 0.0) == 0.0
+
+
+# ---- spread & total scans -------------------------------------------------
+def _ladder(event, kind, strike, ask, team=""):
+    return KalshiLadderMarket(ticker=f"{event}-{team}{strike}", event_ticker=event,
+                              kind=kind, team_code=team, floor_strike=strike,
+                              yes_ask=ask, yes_bid=ask - 0.01, last_price=ask,
+                              close_time="2026-09-14T17:00:00Z", status="open",
+                              volume=5.0)
+
+
+_CONS = {
+    frozenset({"KC", "DEN"}): {
+        "probs": {"KC": 0.80, "DEN": 0.20},
+        "margin": {"KC": 7.0, "DEN": -7.0},
+        "total": 47.0, "n_books": 5,
+        "home": "KC", "away": "DEN", "commence_time": "",
+    }
+}
+
+
+def test_scan_spreads_prices_and_matches():
+    mk = [_ladder("KXNFLSPREAD-26SEP14DENKC", "spread", 3.5, 0.43, team="KC")]
+    rows = scan.scan_spreads(mk, _CONS, min_edge=0.03)
+    assert len(rows) == 1
+    r = rows[0]
+    assert r.market == "SPREAD" and r.team == "KC" and r.line == 3.5
+    # P(margin>3.5 | mean 7, sd 12.7) ~ 0.61; cost ~0.45 -> clear positive edge
+    assert 0.55 < r.fair_prob < 0.66
+    assert r.edge > 0.10
+
+
+def test_scan_totals_prices_and_thresholds():
+    # Over 44.5 with mean total 47 -> ~0.57 fair, cost ~0.57 -> tiny edge, excluded
+    tight = scan.scan_totals([_ladder("KXNFLTOTAL-26SEP14DENKC", "total", 44.5, 0.55)],
+                             _CONS, min_edge=0.03)
+    assert tight == []
+    # a cheap Over is +EV
+    cheap = scan.scan_totals([_ladder("KXNFLTOTAL-26SEP14DENKC", "total", 44.5, 0.45)],
+                             _CONS, min_edge=0.03)
+    assert len(cheap) == 1 and cheap[0].market == "TOTAL" and cheap[0].line == 44.5
