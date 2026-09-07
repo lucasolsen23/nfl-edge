@@ -16,11 +16,31 @@ team (...-NYG, ...-LAR), each a YES/NO "Team wins" contract. Prices are in the
 
 from __future__ import annotations
 
+import datetime as _dt
 import re
 from dataclasses import dataclass
 from typing import Optional
 
 import requests
+
+_MONTHS = {"JAN": 1, "FEB": 2, "MAR": 3, "APR": 4, "MAY": 5, "JUN": 6,
+           "JUL": 7, "AUG": 8, "SEP": 9, "OCT": 10, "NOV": 11, "DEC": 12}
+_DATE_RE = re.compile(r"-(\d{2})([A-Z]{3})(\d{2})")
+
+
+def event_date(ticker: str) -> Optional[_dt.date]:
+    """Parse the game date from a Kalshi ticker, e.g. 'KXNFLGAME-26SEP21NYGLAR'
+    -> date(2026, 9, 21)."""
+    m = _DATE_RE.search(ticker or "")
+    if not m:
+        return None
+    yy, mon, dd = m.group(1), m.group(2), m.group(3)
+    if mon not in _MONTHS:
+        return None
+    try:
+        return _dt.date(2000 + int(yy), _MONTHS[mon], int(dd))
+    except ValueError:
+        return None
 
 BASE = "https://api.elections.kalshi.com/trade-api/v2"
 

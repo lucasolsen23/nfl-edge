@@ -17,8 +17,12 @@ from typing import Optional
 
 from . import dist
 from .fees import fee_per_contract
-from .kalshi import KalshiMarket, KalshiLadderMarket, group_by_event
+from .kalshi import KalshiMarket, KalshiLadderMarket, event_date, group_by_event
 from .teams import norm_abbr
+
+# Kalshi ticker date vs book commence date can differ by up to a day for
+# night games (UTC rollover); 3 days is safe and never spans two NFL weeks.
+_MATCH_TOL_DAYS = 3
 
 
 @dataclass
@@ -65,13 +69,21 @@ def _row(market, event, selection, team, opponent, line, fair, ask, fee_rate,
     )
 
 
-def _team_index(cons: dict) -> dict[str, frozenset]:
-    """team abbr -> the cons key (game) it belongs to (unique per week)."""
-    idx = {}
-    for key in cons:
-        for t in key:
-            idx[t] = key
-    return idx
+def find_game(cons: dict, event_ticker: str) -> Optional[dict]:
+    """Find the consensus record for a Kalshi event, matching on BOTH team codes
+    present in the ticker AND the closest date. This is what prevents the
+    multi-week Odds API feed from pairing a contract with the wrong week."""
+    tdate = event_date(event_ticker)
+    best, best_diff = None, 10 ** 9
+    for key, recs in cons.items():
+        if not all(code in event_ticker for code in key):
+            continue
+        for rec in recs:
+            d = rec.get("date")
+            diff = abs((d - tdate).days) if (d and tdate) else 10 ** 9
+            if diff < best_diff:
+                best, best_diff = rec, diff
+    return best if best is not None and best_diff <= _MATCH_TOL_DAYS else None
 
 
 # ---- moneyline ------------------------------------------------------------
@@ -80,17 +92,17 @@ def scan(kalshi_markets: list[KalshiMarket], cons: dict,
     rows: list[EdgeRow] = []
     for event, ms in group_by_event(kalshi_markets).items():
         codes = [norm_abbr(m.team_code) for m in ms]
-        book = cons.get(frozenset(codes))
-        if not book or len(codes) < 2:
+        game = find_game(cons, event)
+        if not game or len(codes) < 2:
             continue
         for m in ms:
             code = norm_abbr(m.team_code)
-            fair = book.get("probs", {}).get(code)
+            fair = game.get("probs", {}).get(code)
             if fair is None or m.yes_ask is None:
                 continue
             opp = next((c for c in codes if c != code), "?")
             rows.append(_row("ML", event, code, code, opp, None, fair, m.yes_ask,
-                             fee_rate, book.get("n_books", 0), m.close_time, m.ticker))
+                             fee_rate, game.get("n_books", 0), m.close_time, m.ticker))
     return _finish(rows, min_edge)
 
 
@@ -98,24 +110,22 @@ def scan(kalshi_markets: list[KalshiMarket], cons: dict,
 def scan_spreads(markets: list[KalshiLadderMarket], cons: dict,
                  min_edge: float = 0.03, fee_rate: float = 0.07,
                  sd: float = dist.MARGIN_SD) -> list[EdgeRow]:
-    idx = _team_index(cons)
     rows: list[EdgeRow] = []
     for m in markets:
         if m.yes_ask is None or not m.team_code:
             continue
         team = norm_abbr(m.team_code)
-        key = idx.get(team)
-        if not key:
+        game = find_game(cons, m.event_ticker)
+        if not game or team not in (game.get("home"), game.get("away")):
             continue
-        book = cons[key]
-        margin = book.get("margin", {}).get(team)
+        margin = game.get("margin", {}).get(team)
         if margin is None:
             continue
-        opp = next((c for c in key if c != team), "?")
+        opp = game["home"] if game["away"] == team else game["away"]
         fair = dist.prob_margin_over(margin, m.floor_strike, sd)
         rows.append(_row("SPREAD", m.event_ticker, f"{team} by >{m.floor_strike}",
                          team, opp, m.floor_strike, fair, m.yes_ask, fee_rate,
-                         book.get("n_books", 0), m.close_time, m.ticker))
+                         game.get("n_books", 0), m.close_time, m.ticker))
     return _finish(rows, min_edge)
 
 
@@ -127,18 +137,13 @@ def scan_totals(markets: list[KalshiLadderMarket], cons: dict,
     for m in markets:
         if m.yes_ask is None:
             continue
-        # match this event to a cons game: both team codes appear in the ticker
-        key = next((k for k in cons if all(t in m.event_ticker for t in k)), None)
-        if not key:
+        game = find_game(cons, m.event_ticker)
+        if not game or game.get("total") is None:
             continue
-        book = cons[key]
-        total = book.get("total")
-        if total is None:
-            continue
-        fair = dist.prob_total_over(total, m.floor_strike, sd)
+        fair = dist.prob_total_over(game["total"], m.floor_strike, sd)
         rows.append(_row("TOTAL", m.event_ticker, f"Over {m.floor_strike}",
                          "", "", m.floor_strike, fair, m.yes_ask, fee_rate,
-                         book.get("n_books", 0), m.close_time, m.ticker))
+                         game.get("n_books", 0), m.close_time, m.ticker))
     return _finish(rows, min_edge)
 
 

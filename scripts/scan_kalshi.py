@@ -40,9 +40,10 @@ def _demo_book_probs(mk):
                 mids[norm_abbr(m.team_code)] = (m.yes_bid + m.yes_ask) / 2
         if len(mids) == 2:
             tot = sum(mids.values())
-            out[frozenset(mids)] = {"probs": {k: v / tot for k, v in mids.items()},
-                                    "commence_time": "", "home": "", "away": "",
-                                    "n_books": 0}
+            out[frozenset(mids)] = [{
+                "date": kalshi.event_date(event),
+                "probs": {k: v / tot for k, v in mids.items()},
+                "commence_time": "", "home": "", "away": "", "n_books": 0}]
     return out
 
 

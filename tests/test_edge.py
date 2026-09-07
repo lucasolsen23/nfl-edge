@@ -1,5 +1,6 @@
 """Unit tests for the edge engine's money math (fees, Kelly, scan)."""
 
+import datetime as dt
 import math
 
 from nfl_edge.edge import dist, fees, scan
@@ -44,29 +45,48 @@ def test_kelly_zero_when_no_edge():
 
 
 # ---- scan ----------------------------------------------------------------
-def _mkt(event, code, ask):
+_ML_EVENT = "KXNFLGAME-26SEP20INDKC"
+
+
+def _mkt(code, ask, event=_ML_EVENT):
     return KalshiMarket(ticker=f"{event}-{code}", event_ticker=event, team_code=code,
                         team_name=code, yes_ask=ask, yes_bid=ask - 0.01,
                         last_price=ask, close_time="2026-09-23T00:20:00Z",
                         status="open", volume=10.0)
 
 
+def _ml_cons():
+    return {frozenset({"KC", "IND"}): [{
+        "date": dt.date(2026, 9, 20), "probs": {"KC": 0.82, "IND": 0.18},
+        "n_books": 6, "commence_time": "", "home": "KC", "away": "IND"}]}
+
+
 def test_scan_finds_and_thresholds_edges():
-    mk = [_mkt("E1", "KC", 0.75), _mkt("E1", "IND", 0.26)]
-    book = {frozenset({"KC", "IND"}): {"probs": {"KC": 0.82, "IND": 0.18},
-                                       "n_books": 6, "commence_time": "",
-                                       "home": "KC", "away": "IND"}}
-    rows = scan.scan(mk, book, min_edge=0.03)
+    mk = [_mkt("KC", 0.75), _mkt("IND", 0.26)]
+    rows = scan.scan(mk, _ml_cons(), min_edge=0.03)
     assert len(rows) == 1                 # only KC clears +3% (IND is -EV)
     assert rows[0].team == "KC"
     assert approx(rows[0].edge, 0.05, tol=1e-9)
     # raising the threshold above the edge removes it
-    assert scan.scan(mk, book, min_edge=0.06) == []
+    assert scan.scan(mk, _ml_cons(), min_edge=0.06) == []
 
 
 def test_scan_skips_unmatched_games():
-    mk = [_mkt("E1", "KC", 0.75), _mkt("E1", "IND", 0.26)]
+    mk = [_mkt("KC", 0.75), _mkt("IND", 0.26)]
     assert scan.scan(mk, {}, min_edge=0.0) == []   # no book price -> no rows
+
+
+def test_scan_matches_correct_week_by_date():
+    # same matchup twice; the Sep 20 contract must use the Sep 20 line, not Nov
+    mk = [_mkt("KC", 0.75), _mkt("IND", 0.26)]
+    cons = {frozenset({"KC", "IND"}): [
+        {"date": dt.date(2026, 9, 20), "probs": {"KC": 0.82, "IND": 0.18},
+         "n_books": 6, "home": "KC", "away": "IND"},
+        {"date": dt.date(2026, 11, 15), "probs": {"KC": 0.50, "IND": 0.50},
+         "n_books": 6, "home": "IND", "away": "KC"}]}
+    rows = scan.scan(mk, cons, min_edge=0.03)
+    assert len(rows) == 1 and rows[0].team == "KC"
+    assert approx(rows[0].fair_prob, 0.82)   # Sep line, not the Nov 0.50
 
 
 # ---- distribution pricer --------------------------------------------------
@@ -97,12 +117,13 @@ def _ladder(event, kind, strike, ask, team=""):
 
 
 _CONS = {
-    frozenset({"KC", "DEN"}): {
+    frozenset({"KC", "DEN"}): [{
+        "date": dt.date(2026, 9, 14),
         "probs": {"KC": 0.80, "DEN": 0.20},
         "margin": {"KC": 7.0, "DEN": -7.0},
         "total": 47.0, "n_books": 5,
         "home": "KC", "away": "DEN", "commence_time": "",
-    }
+    }]
 }
 
 
