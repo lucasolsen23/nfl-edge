@@ -26,7 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import polars as pl  # noqa: E402
 
-from nfl_edge.props import live, scan_props  # noqa: E402
+from nfl_edge.props import live, scan_props, correlations  # noqa: E402
 from nfl_edge.edge import notify  # noqa: E402
 
 
@@ -67,6 +67,10 @@ def main() -> None:
     edges = scan_props.score_lines(lines, lp)
     body = scan_props.format_props(edges, breakeven=args.breakeven)
     print("\n" + body)
+
+    # correlated same-game parlays from these legs
+    parlays = correlations.suggest_parlays(edges, min_leg_prob=args.breakeven)
+    print("\n" + correlations.format_parlays(parlays))
 
     if args.notify:
         picks = [e for e in edges if e.prob >= args.breakeven]

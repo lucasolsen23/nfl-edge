@@ -38,6 +38,8 @@ class PropEdge:
     week: int
     note: str = ""
     opp_factor: float = 1.0
+    player_id: str = ""
+    team: str = ""
 
     def edge_vs(self, breakeven: float) -> float:
         return round(self.prob - breakeven, 4)
@@ -73,6 +75,8 @@ def score_lines(lines: list[dict], projections: pl.DataFrame) -> list[PropEdge]:
             proj_sd=round(sd, 1), opponent=r["opponent_team"],
             season=r["season"], week=r["week"],
             note=r.get("note", "") or "", opp_factor=r.get("opp_factor", 1.0),
+            player_id=r.get("player_id", ""),
+            team=r.get("team2026") or r.get("team", ""),
         ))
     edges.sort(key=lambda e: e.prob, reverse=True)
     return edges
