@@ -1,0 +1,4 @@
+# Lightweight deps for the live scanner only (GitHub Actions / cron).
+# The full data+model pipeline uses requirements.txt; the edge scanner needs
+# nothing heavy -- just HTTP.
+requests>=2.31

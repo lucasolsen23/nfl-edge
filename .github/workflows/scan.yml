@@ -1,0 +1,52 @@
+name: kalshi-edge-scan
+
+# Always-on NFL edge scanner. Runs in the cloud on a schedule, compares Kalshi
+# prices to de-vigged book fair value, and pushes Telegram alerts on +EV bets.
+#
+# QUOTA: The Odds API free tier = 500 requests/month. This schedule (every 2h,
+# Thu-Mon) is ~250/month. To poll harder on Sundays add a second cron line, or
+# upgrade the Odds API plan. The Kalshi side is free/unlimited.
+
+on:
+  schedule:
+    # minute hour day-of-month month day-of-week   (UTC!)
+    - cron: "0 */2 * * 0,1,4,5,6"     # every 2 hours, Thu Fri Sat Sun Mon
+  workflow_dispatch: {}               # lets you run it on demand from the Actions tab
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kalshi-scan
+  cancel-in-progress: false
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Roll the alert-dedup state across runs so a standing edge isn't re-pinged
+      # every 2 hours. Unique key per run saves fresh state; restore-keys grabs
+      # the most recent previous state.
+      - name: Restore alert state
+        uses: actions/cache@v4
+        with:
+          path: outputs/notified.json
+          key: notified-${{ github.run_id }}
+          restore-keys: |
+            notified-
+
+      - name: Install deps
+        run: pip install -r requirements-scan.txt
+
+      - name: Scan and alert
+        env:
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python scripts/scan_kalshi.py --notify telegram --min-edge 0.03

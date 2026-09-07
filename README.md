@@ -25,8 +25,25 @@ headaches.
 | Point-in-time EPA features (leakage-checked) | `src/nfl_edge/features.py` | done |
 | Walk-forward ridge power rating | `src/nfl_edge/model.py` | done |
 | Model → ATS backtest vs closing line | `scripts/run_model.py` | done |
-| No-vig / Kalshi discrepancy scanner | — | next |
+| Live Kalshi edge scanner + Telegram alerts | `src/nfl_edge/edge/`, `.github/workflows/scan.yml` | done |
 | Calibration report (Brier, reliability) | `evaluate.py` | next |
+
+## Live edge scanner (Utah-legal: Kalshi only)
+
+Since Utah bans sportsbooks, books are used as a **fair-value reference**, not a
+place to bet: de-vig the book consensus to a true win probability, then buy it
+cheaper on **Kalshi** (a CFTC exchange) when the price disagrees.
+
+```bash
+python scripts/scan_kalshi.py                 # print the edge board
+python scripts/scan_kalshi.py --notify telegram --loop 900   # poll + phone alerts
+python scripts/scan_kalshi.py --demo          # see the format without any API key
+```
+
+- Kalshi reads need **no credentials** (public market data; `KXNFLGAME/SPREAD/TOTAL`).
+- Book fair value via The Odds API (free tier). Edge = `fair − (kalshi_ask + fee)`,
+  with a fractional-**Kelly** stake per bet.
+- Always-on via **GitHub Actions cron** → **Telegram**. See [SETUP.md](SETUP.md).
 
 ## Quickstart
 
