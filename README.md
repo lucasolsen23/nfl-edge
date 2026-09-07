@@ -25,7 +25,7 @@ headaches.
 | Point-in-time EPA features (leakage-checked) | `src/nfl_edge/features.py` | done |
 | Walk-forward ridge power rating | `src/nfl_edge/model.py` | done |
 | Model → ATS backtest vs closing line | `scripts/run_model.py` | done |
-| Live Kalshi edge scanner + Telegram alerts | `src/nfl_edge/edge/`, `.github/workflows/scan.yml` | done |
+| Live Kalshi edge scanner + Discord alerts | `src/nfl_edge/edge/`, `.github/workflows/scan.yml` | done |
 | Calibration report (Brier, reliability) | `evaluate.py` | next |
 
 ## Live edge scanner (Utah-legal: Kalshi only)

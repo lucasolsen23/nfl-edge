@@ -1,37 +1,35 @@
-# Setup — live Kalshi edge alerts to Telegram
+# Setup — live Kalshi edge alerts to Discord
 
 The scanner reads Kalshi with **no key** (public data). You only need two things:
-a free **Odds API key** (book fair-value reference) and a **Telegram bot** (alerts).
+a free **Odds API key** (book fair-value reference) and a **Discord webhook** (alerts).
 
 ## 1. Odds API key (fair-value reference)
 
 1. Sign up at <https://the-odds-api.com> (free tier: 500 requests/month).
 2. Copy your API key from the dashboard.
 
-## 2. Telegram bot (the alert channel)
+## 2. Discord webhook (the alert channel)
 
-1. In Telegram, message **@BotFather** → send `/newbot` → follow prompts →
-   copy the **bot token** it gives you (looks like `12345678:AA...`).
-2. Send any message to your new bot (so it can see you).
-3. Get your **chat ID**: message **@userinfobot**, or open
-   `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` in a browser and read
-   `"chat":{"id": ...}`.
+1. In Discord, pick (or create) a server and a channel for alerts — e.g. `#nfl-edges`.
+2. Hover the channel → gear icon (**Edit Channel**) → **Integrations** →
+   **Webhooks** → **New Webhook**.
+3. Name it (e.g. "Kalshi Scanner"), then **Copy Webhook URL**. That URL is the
+   secret — it looks like `https://discord.com/api/webhooks/123.../abc...`.
 
 ## 3. Test it locally first (Windows PowerShell)
 
 ```powershell
-$env:ODDS_API_KEY      = "your_odds_key"
-$env:TELEGRAM_BOT_TOKEN = "your_bot_token"
-$env:TELEGRAM_CHAT_ID   = "your_chat_id"
+$env:ODDS_API_KEY        = "your_odds_key"
+$env:DISCORD_WEBHOOK_URL = "your_webhook_url"
 
 # one scan, print the board:
 python scripts/scan_kalshi.py
 
-# scan + push a Telegram alert on any new edge >= 3%:
-python scripts/scan_kalshi.py --notify telegram
+# scan + push a Discord alert on any new edge >= 3%:
+python scripts/scan_kalshi.py --notify discord
 
 # poll every 15 minutes while your PC is on:
-python scripts/scan_kalshi.py --loop 900 --notify telegram
+python scripts/scan_kalshi.py --loop 900 --notify discord
 ```
 
 No key yet? See the format with fake data: `python scripts/scan_kalshi.py --demo`.
@@ -41,13 +39,12 @@ No key yet? See the format with fake data: `python scripts/scan_kalshi.py --demo
 Once the repo is on GitHub (VS Code → Publish to GitHub → **Private**):
 
 1. Repo **Settings → Secrets and variables → Actions → New repository secret**.
-   Add three secrets (names must match exactly):
+   Add two secrets (names must match exactly):
    - `ODDS_API_KEY`
-   - `TELEGRAM_BOT_TOKEN`
-   - `TELEGRAM_CHAT_ID`
+   - `DISCORD_WEBHOOK_URL`
 2. Go to the **Actions** tab, enable workflows if prompted.
 3. Open **kalshi-edge-scan** → **Run workflow** to test it immediately.
-4. After that it runs on its own every 2 hours, Thu–Mon (see `.github/workflows/scan.yml`).
+4. After that it runs on its own every 4 hours, Thu–Mon (see `.github/workflows/scan.yml`).
 
 **Secrets never live in the code** — they're read from environment variables, and
 GitHub encrypts the repo secrets. Nothing sensitive is committed.

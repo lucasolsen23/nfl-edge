@@ -48,6 +48,5 @@ jobs:
       - name: Scan and alert
         env:
           ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python scripts/scan_kalshi.py --notify telegram --min-edge 0.03
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: python scripts/scan_kalshi.py --notify discord --min-edge 0.03
