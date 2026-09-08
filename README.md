@@ -184,8 +184,14 @@ price gaps.
   and defensive-player props (`props/defense.py`: tackles via normal, sacks via
   Poisson; tackles scale with opponent pace, sacks with opponent O-line). Run:
   `python scripts/def_props.py --lines def.csv`.
-- **Phase 6 — Next.** Auto line source for props; other sports (NBA/EPL/UCL);
-  Playoff/SB futures.
+- **Phase 6 — Auto line source (built).** `props/odds_props.py` pulls player
+  props from the books via The Odds API (PrizePicks' own API is Cloudflare-
+  blocked), de-vigs to a fair value, and scores where our model disagrees. It is
+  **market-anchored** — the sharp book line is a strong prior, our model only
+  leans it partway, and wild disagreements (small-sample/role noise) are dropped
+  as model error, not surfaced as fake edges. Run:
+  `python scripts/props_auto.py --limit 6` (cost = events × markets credits).
+- **Phase 7 — Next.** Other sports (NBA/EPL/UCL); Playoff/SB futures.
 
 Model work itself (`features.py` point-in-time EPA, `model.py` walk-forward
 logistic/ridge) hangs off the Phase-1 foundation.

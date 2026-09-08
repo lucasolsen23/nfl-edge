@@ -40,6 +40,8 @@ class PropEdge:
     opp_factor: float = 1.0
     player_id: str = ""
     team: str = ""
+    book_prob: float = 0.0        # de-vigged book prob of the picked side (0 if unknown)
+    mkt_edge: float = 0.0         # our prob - book prob for the picked side
 
     def edge_vs(self, breakeven: float) -> float:
         return round(self.prob - breakeven, 4)
